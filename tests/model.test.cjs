@@ -28,8 +28,27 @@ const oneKnown=D.questions.find(q=>q.id==='svo-demobilization');assert.equal(M.q
 assert.equal(M.calculate(levels,{[hypothetical.id]:1},enabled).allocated,0);
 const unknown={...D.questions[0],positions:[-1,null,1]};
 const unknownShares=M.questionShares(unknown,-1,[0,1,2]);
-assert.ok(unknownShares[0]>unknownShares[1]&&unknownShares[1]>unknownShares[2]);
-assert.ok(Math.abs(unknownShares[1]-1/3)<1e-12);
+assert.ok(unknownShares[0]>.999&&unknownShares[2]<1e-10);
+assert.equal(unknownShares[1],0);
+assert.equal(M.questionAffinities(unknown,-1,[0,1,2])[1],null);
+// Exact known profiles lead their own results; shared policy positions still give others seats.
+for(const party of enabled){
+ const profile=Object.fromEntries(D.questions.filter(q=>q.positions[party]!==null).map(q=>[q.id,q.positions[party]/q.d]));
+ const result=M.calculate(levels,profile,enabled);
+ assert.equal(result.totals[party],Math.max(...result.totals),D.parties[party].short+' exact profile must lead');
+ assert.equal(sum(result.totals),450);
+}
+// The topic calculation averages raw evidence, not normalized question votes or a fixed unknown bonus.
+const mixed=M.calculate(levels,{taxes:-1,employment:1},enabled);
+for(const party of enabled){
+ const known=D.questions.filter(q=>['taxes','employment'].includes(q.id)&&q.positions[party]!==null);
+ const mean=known.reduce((n,q)=>n+Math.exp(-((({taxes:-1,employment:1}[q.id])*q.d-q.positions[party])**2)/(2*D.sigma**2)),0)/known.length;
+ assert.ok(Math.abs(mixed.topicScores[0][party]-mean)<1e-12);
+ assert.equal(mixed.topicCoverage[0][party].known,known.length);
+}
+const svo=M.calculate(levels,{'svo-negotiations':-1},enabled);
+const svoQuestion=D.questions.find(q=>q.id==='svo-negotiations');
+for(const party of enabled)if(svoQuestion.positions[party]===null){assert.equal(svo.topicScores[svoQuestion.topic][party],null);assert.equal(svo.totals[party],0);}
 // Topic direction must not invert a preference when visual options are flipped.
 const employment=D.questions.find(q=>q.id==='employment');
 assert.equal(employment.d,-1);

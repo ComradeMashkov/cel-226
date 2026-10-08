@@ -10,37 +10,37 @@ window.PoliticsModel = (() => {
     raw.map((n,i)=>({i,remainder:n-seats[i]})).sort((a,b)=>b.remainder-a.remainder||a.i-b.i).slice(0,remainder).forEach(x=>seats[x.i]++);
     return seats;
   }
-  function questionShares(question,answer,enabled){
+  function questionAffinities(question,answer,enabled){
     if(!Number.isFinite(answer)||Math.abs(answer)>1)throw Error('Ответ должен быть от −1 до 1');
     const supported=enabled.filter(i=>question.positions[i]!==null);
     if(!supported.length||(enabled.length>1&&supported.length<2))return null;
     const axis=answer*question.d;
-    const distances=supported.map(i=>(axis-question.positions[i])**2),minimum=Math.min(...distances);
-    const weights=new Map(supported.map((i,k)=>[i,Math.exp(-(distances[k]-minimum)/(2*D.sigma**2))]));
-    const average=[...weights.values()].reduce((a,b)=>a+b,0)/supported.length;
-    // Missing evidence receives the mean contribution, never an invented position at the centre.
-    const all=enabled.map(i=>weights.get(i)??average),sum=all.reduce((a,b)=>a+b,0);
-    return all.map(x=>x/sum);
+    return enabled.map(i=>question.positions[i]===null?null:Math.exp(-((axis-question.positions[i])**2)/(2*D.sigma**2)));
+  }
+  function questionShares(question,answer,enabled){
+    const affinities=questionAffinities(question,answer,enabled);if(!affinities)return null;
+    const sum=affinities.reduce((n,x)=>n+(x??0),0);
+    return affinities.map(x=>(x??0)/sum);
   }
   function calculate(levels,answers,enabled,allowedTopics=null){
-    const usable=D.topics.map((_,t)=>Object.entries(answers).some(([id,value])=>{
-      const q=D.questions.find(q=>q.id===id);
-      return q&&q.topic===t&&value!==null&&questionShares(q,value,enabled)!==null;
-    }));
+    const comparisons=D.questions.filter(q=>answers[q.id]!==undefined&&answers[q.id]!==null).map(q=>({q,affinities:questionAffinities(q,answers[q.id],enabled)})).filter(c=>c.affinities!==null);
+    const usable=D.topics.map((_,t)=>comparisons.some(c=>c.q.topic===t));
     const chunks=apportion(levels.map((level,t)=>usable[t]&&(!allowedTopics||allowedTopics.includes(t))?D.levels[level].weight:0),D.totalSeats);
     const coverage=enabled.map(()=>({known:0,total:0}));
-    const parts=D.topics.map((_,t)=>{
-      const scores=enabled.map(()=>0);
-      D.questions.filter(q=>q.topic===t).forEach(q=>{
-        const answer=answers[q.id];
-        if(answer===undefined||answer===null||!chunks[t])return;
-        const shares=questionShares(q,answer,enabled);if(!shares)return;
-        shares.forEach((x,k)=>{scores[k]+=x;coverage[k].total++;if(q.positions[enabled[k]]!==null)coverage[k].known++;});
+    const topicCoverage=D.topics.map(()=>enabled.map(()=>({known:0,total:0})));
+    const topicScores=D.topics.map((_,t)=>{
+      const sums=enabled.map(()=>0);
+      if(!chunks[t])return enabled.map(()=>null);
+      comparisons.filter(c=>c.q.topic===t).forEach(({affinities})=>{
+        affinities.forEach((x,k)=>{coverage[k].total++;topicCoverage[t][k].total++;if(x!==null){sums[k]+=x;coverage[k].known++;topicCoverage[t][k].known++;}});
       });
-      return apportion(scores,chunks[t]);
+      // No position means no observation, rather than agreement or disagreement.
+      // Average only observed answers so a longer evidenced profile has no automatic weight bonus.
+      return sums.map((n,k)=>topicCoverage[t][k].known?n/topicCoverage[t][k].known:null);
     });
+    const parts=topicScores.map((scores,t)=>apportion(scores.map(x=>x??0),chunks[t]));
     const totals=enabled.map((_,k)=>parts.reduce((n,p)=>n+p[k],0));
-    return {chunks,parts,totals,usable,coverage,allocated:totals.reduce((a,b)=>a+b,0)};
+    return {chunks,parts,totals,usable,coverage,topicScores,topicCoverage,allocated:totals.reduce((a,b)=>a+b,0)};
   }
   function coalitions(totals,enabled){
     const result=[];
@@ -68,5 +68,5 @@ window.PoliticsModel = (() => {
     const questions=D.questions.map(q=>{const values=indices.filter(k=>q.positions[enabled[k]]!==null).map(k=>({party:enabled[k],value:q.positions[enabled[k]]}));const spread=values.length>1?Math.max(...values.map(x=>x.value))-Math.min(...values.map(x=>x.value)):0;return {id:q.id,title:q.title,values,spread};}).filter(q=>q.spread>.7).sort((a,b)=>b.spread-a.spread).slice(0,3);
     return {seats,majority:seats>=D.majority,indicators,compromises:questions};
   }
-  return {apportion,questionShares,calculate,coalitions,scenario,seatPositions:positions(),shuffle};
+  return {apportion,questionAffinities,questionShares,calculate,coalitions,scenario,seatPositions:positions(),shuffle};
 })();

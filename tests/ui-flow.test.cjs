@@ -54,6 +54,10 @@ class Element {
   querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
   closest(selector) { for (let node = this; node; node = node.parentElement) if (matches(node, selector)) return node; return null; }
   addEventListener(type, callback, capture) { (this.listeners[type] ||= []).push({callback, capture}); }
+  removeEventListener(type, callback, capture = false) {
+    this.listeners[type] = (this.listeners[type] || []).filter(listener => listener.callback !== callback || Boolean(listener.capture) !== Boolean(capture));
+  }
+  contains(node) { for (let current = node; current; current = current.parentElement) if (current === this) return true; return false; }
   dispatch(type, extra = {}) {
     const event = {type, target:this, preventDefault(){}, ...extra};
     const ancestry = []; for (let node = this; node; node = node.parentElement) ancestry.push(node);
