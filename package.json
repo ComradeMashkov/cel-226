@@ -1,0 +1,7 @@
+{
+  "name": "cel-226",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Российская адаптация политического теста Objetivo 176",
+  "scripts": {"test": "node tests/model.test.cjs && node tests/law-sim.test.cjs && node tests/ui-flow.test.cjs", "serve": "python3 -m http.server 8789 --directory dist --bind 127.0.0.1"}
+}

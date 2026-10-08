@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#00979b">
+  <meta name="description" content="Как выглядела бы Государственная дума, если бы всё зависело от вас? 98 вопросов о России, 14 тем и 450 мест по вашим взглядам.">
+  <title>Цель 226 — ваша Дума</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2300979b'/%3E%3Cpath d='M7 23a9 9 0 0 1 18 0M11 23a5 5 0 0 1 10 0' fill='none' stroke='white' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="data.js"></script>
+  <script defer src="model.js"></script>
+  <script defer src="bills.js"></script>
+  <script defer src="law-sim.js"></script>
+  <script defer src="scenario.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <header class="header">
+    <a class="brand" href="#" id="home" aria-label="Цель 226 — главная">ЦЕЛЬ <span>226</span><small>ПОЛИТИЧЕСКИЙ ТЕСТ · РОССИЯ</small></a>
+    <nav aria-label="Основная навигация"><button class="pill" id="method">Как это работает</button><button class="theme-button" id="theme" aria-label="Включить тёмную тему" title="Сменить тему">☾</button></nav>
+  </header>
+  <div id="progress" hidden></div>
+  <main id="app"></main>
+  <footer><div><b>ЦЕЛЬ <span>226</span></b><p>Ваши взгляды. Ваша Дума.</p></div><div><a href="https://objetivo176.es/test?lang=en" target="_blank" rel="noopener noreferrer">По мотивам Objetivo 176</a><button class="text-button" id="sources">Методика и источники</button><small>Независимый эксперимент · Не связан с партиями</small></div></footer>
+  <dialog id="info"><div class="dialog-head"><h2 id="dialog-title">Как это работает</h2><button class="theme-button" id="close-dialog" aria-label="Закрыть">×</button></div><div id="dialog-body"></div></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <noscript>Для прохождения теста включите JavaScript. Ответы обрабатываются только на вашем устройстве.</noscript>
+</body>
+</html>
