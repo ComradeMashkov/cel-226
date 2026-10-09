@@ -110,17 +110,17 @@ function parse(html, root) {
   }
   assert.equal(stack.length, 1, 'Unclosed HTML tag');
 }
-function appHarness() {
+function appHarness({reduced=true}={}) {
   const document = new Element('document');
   document.innerHTML = fs.readFileSync(path.join(__dirname, '../dist/index.html'), 'utf8');
-  const timers = new Map(), registered = new Map(); let nextTimer = 0, randomSeed = 7;
+  const timers = new Map(), registered = new Map(), frames = new Map(); let nextTimer = 0, randomSeed = 7;
   document.modelContext = {registerTool(tool) { registered.set(tool.name, tool); }};
   const math = Object.create(Math); math.random = () => { randomSeed = randomSeed * 48271 % 2147483647; return randomSeed / 2147483647; };
   const context = {
     window:{scrollTo(){}}, document, Math:math,
-    matchMedia:() => ({matches:true}), performance:{now:() => 0},
+    matchMedia:() => ({matches:reduced}), performance:{now:() => 0},
     setInterval:callback => { timers.set(++nextTimer, callback); return nextTimer; }, clearInterval:id => timers.delete(id),
-    setTimeout:() => ++nextTimer, clearTimeout(){}, requestAnimationFrame(){ throw Error('Reduced-motion path should render immediately'); }, cancelAnimationFrame(){}
+    setTimeout:() => ++nextTimer, clearTimeout(){}, requestAnimationFrame(callback){ if(reduced)throw Error('Reduced-motion path should render immediately');frames.set(++nextTimer,callback);return nextTimer; }, cancelAnimationFrame:id=>frames.delete(id)
   };
   vm.createContext(context);
   for (const script of document.querySelectorAll('script[src]')) vm.runInContext(fs.readFileSync(path.join(__dirname, '../dist', script.getAttribute('src')), 'utf8'), context);
@@ -150,8 +150,36 @@ function appHarness() {
     assert.equal(query('#result-hemi').querySelectorAll('circle').length, 450);
     assert.equal(document.querySelectorAll('.party-rank-button').reduce((sum, n) => sum + Number(n.querySelector('b').textContent), 0), 450);
   }
-  return {context, document, query, data, read, timers, selectTopics, setMode, answer, finish, assertSeats};
+  return {context, document, query, data, read, timers, frames, selectTopics, setMode, answer, finish, assertSeats};
 }
+
+// Actual skip/preference/replay controls finish the current board and carry the choice forward.
+let animated = appHarness({reduced:false});
+animated.query('#start').click(); animated.setMode('full'); animated.selectTopics({0:2,1:2}); animated.query('#begin').click();
+function reachBoard(ui) {
+  for(let step=0;step<98;step++) {
+    const state=ui.read(); if(state.view==='board')return;
+    assert.equal(state.view,'quiz'); ui.answer(ui.data.questions.find(q=>q.title===state.question),0);
+  }
+  assert.fail('Board was not reached');
+}
+reachBoard(animated);
+assert.equal(animated.query('#board-ranking').getAttribute('data-board-phase'),'start');
+assert.equal(animated.frames.size,1); animated.query('#skip-board').click();
+assert.equal(animated.query('#board-ranking').getAttribute('data-board-phase'),'done');
+assert.equal(animated.frames.size,0); assert.equal(animated.query('#skip-board').disabled,true);
+assert.equal(Number(animated.query('#board-hemi .big').textContent),225);
+const preference=animated.query('#skip-board-always'); preference.checked=true; preference.dispatch('change');
+animated.query('#continue').click(); reachBoard(animated);
+assert.equal(animated.query('#skip-board-always').checked,true);
+assert.equal(animated.query('#board-ranking').getAttribute('data-board-phase'),'done');
+assert.equal(animated.frames.size,0);
+assert.equal(Number(animated.query('#board-hemi .big').textContent),450);
+animated.query('#replay').click();
+assert.equal(animated.query('#board-ranking').getAttribute('data-board-phase'),'start');
+assert.equal(animated.frames.size,1); assert.equal(animated.query('#skip-board').disabled,false);
+animated.query('#skip-board').click(); animated.query('#continue').click(); animated.assertSeats();
+assert.equal(animated.frames.size,0);
 
 // Full questionnaire exercises every actual Next and board Continue callback.
 let ui = appHarness(); ui.query('#start').click(); ui.setMode('full'); ui.query('#begin').click();
@@ -219,5 +247,21 @@ assert.equal(ui.query('#demo-hemi').querySelectorAll('circle title').length, 450
 assert.equal(ui.document.querySelectorAll('.legend span').length, 9);
 assert.equal(ui.document.querySelector('.demo-pause'), null);
 const label = ui.query('#demo-label').textContent; assert.equal(ui.timers.size, 1); [...ui.timers.values()][0](); assert.notEqual(ui.query('#demo-label').textContent, label);
+const seenBills=new Set(),seenParties=new Set();
+for(let step=0;step<27;step++) {
+  const bubble=ui.query('#demo-dialogue'),party=ui.data.parties[+bubble.dataset.demoParty],bill=ui.context.window.PoliticsBills.find(b=>b.id===bubble.dataset.demoBill);
+  assert.ok(bill.sponsors.includes(party.id),'bubble uses the initiative of its speaking party');
+  const speaker=ui.query('#demo-hemi .demo-speaking');
+  assert.equal(ui.document.querySelectorAll('#demo-hemi .demo-speaking').length,1);
+  assert.equal(speaker.getAttribute('fill'),party.color);
+  assert.equal(speaker.dataset.demoParty,bubble.dataset.demoParty);
+  assert.equal(ui.query('#demo-speaker-ring').getAttribute('cx'),speaker.getAttribute('cx'));
+  assert.equal(ui.query('#demo-speaker-ring').getAttribute('cy'),speaker.getAttribute('cy'));
+  assert.equal(ui.query('#demo-dialogue-wrap').getAttribute('aria-hidden'),'false');
+  seenBills.add(bill.id);seenParties.add(party.id);[...ui.timers.values()][0]();
+}
+assert.equal(seenBills.size,27);assert.equal(seenParties.size,9);
+ui.query('#start').click();assert.equal(ui.timers.size,0,'leaving the intro stops the proposal cycle');
+
 assert.ok(!/undefined|NaN/.test(ui.query('#app').innerHTML));
-console.log('Passed UI state flows: full 98 questions/14 boards/450 seats/27 laws, baseline and zero execution, law links/filters/open state, adaptive expansion, reserve-only edits, missing-evidence empty states, global coalition IDs/fresh result handlers/last-theme guard, independent continuous demo. No browser layout assertion.');
+console.log('Passed UI state flows: skip/current and later blocks/replay controls, full 98 questions/14 boards/450 seats/27 laws, baseline and zero execution, law links/filters/open state, adaptive expansion, reserve-only edits, missing-evidence empty states, global coalition IDs/fresh result handlers/last-theme guard, independent continuous demo and all 27 proposals/9 parties tied to actual speaker seats. No browser layout assertion.');

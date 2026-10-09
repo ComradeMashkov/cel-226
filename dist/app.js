@@ -2,7 +2,7 @@
 (() => {
   const D=window.PoliticsData,M=window.PoliticsModel,app=document.querySelector('#app');
   const icons={chart:'<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>',heart:'<path d="M12 20L4 12C-2 5 7 0 12 6c5-6 14-1 8 6z"/>',people:'<circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0112 0v3M17 5a3 3 0 010 6M18 15a5 5 0 014 5"/>',shield:'<path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11z"/>',globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-6 6-6 12 0 18 6-6 6-12 0-18z"/>',map:'<path d="M3 6l6-2 6 2 6-2v16l-6 2-6-2-6 2zM9 4v16M15 6v16"/>',leaf:'<path d="M4 20C3 9 10 3 21 3c0 11-6 18-17 17zM4 20l10-10"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 3"/>',building:'<path d="M3 21h18M4 8h16M3 6l9-4 9 4M6 8v11M12 8v11M18 8v11"/>',chip:'<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',book:'<path d="M12 5v16M12 5C7 2 3 3 2 4v15c4-1 7-1 10 2 3-3 6-3 10-2V4c-3-1-7-1-10 1z"/>'};
-  const S={view:'intro',levels:D.topics.map(()=>2),enabled:D.parties.map((_,i)=>i),answers:{},queue:[],order:[],flips:{},index:0,current:null,touched:false,completed:[],highlight:null,edit:false,mode:'adaptive',reserves:{},expanded:[],adaptiveNotice:'',coalition:null,year:2031,implementation:.7};
+  const S={view:'intro',levels:D.topics.map(()=>2),enabled:D.parties.map((_,i)=>i),answers:{},queue:[],order:[],flips:{},index:0,current:null,touched:false,completed:[],highlight:null,edit:false,mode:'adaptive',reserves:{},expanded:[],adaptiveNotice:'',coalition:null,year:2031,implementation:.7,skipBoardAnimations:false};
   let demoTimer=null,demoFrame=null,boardController=null,toastTimer=null,scenarioController=null,coordinatesController=null,coordinatesReturn='intro',coordinatesPreview=null;
   const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const dot=(color)=>`<i class="dot" style="background:${color}"></i>`;
@@ -52,7 +52,7 @@
   function intro(){
     setView('intro');
     const demo=M.apportion([21,12,8,13,6,17,12,6,5],450);
-    app.innerHTML=`<section class="intro"><div><div class="eyebrow"><svg class="flag" viewBox="0 0 24 16" aria-hidden="true"><path fill="#fff" d="M0 0h24v5.333H0z"/><path fill="#1659c2" d="M0 5.333h24v5.334H0z"/><path fill="#de353e" d="M0 10.667h24V16H0z"/></svg> Российская версия</div><h1>Ваша Дума</h1><p class="lead"><strong>Как выглядел бы парламент, если бы всё зависело от вас?</strong> Распределите 450 мест по своим взглядам. Вы выбираете важные темы — ваши ответы определяют состав Думы.</p><div class="start-line"><button class="cta" id="start">Начать тест</button><small>${D.topics.length} тем · ${D.questions.length} вопросов<br>полный или адаптивный режим</small></div><ol class="steps"><li><b><em>1</em> Выберите темы</b><span>Ваши приоритеты определяют число мест.</span></li><li><b><em>2</em> Дайте ответы</b><span>Двигайте ползунок между двумя позициями.</span></li><li><b><em>3</em> Следите за счётом</b><span>Каждый блок меняет состав вашей Думы.</span></li></ol><p class="privacy"><span class="lock" aria-hidden="true">♧</span><span><b>Ответы остаются на вашем устройстве.</b> Они не сохраняются и не отправляются. Это исследование взглядов, а не рекомендация голосовать.</span></p></div><figure><div class="hemi-card"><div id="demo-hemi">${hemi(demo,'450','мест · большинство от 226',null,null,D.parties.map((_,i)=>i))}</div>${legend(D.parties.map((_,i)=>i))}</div><figcaption class="caption">Один из возможных составов вашей Думы</figcaption><div class="notice"><b>Экспериментальная модель.</b> Позиции партий — авторские оценки по программам и публичным материалам. Неизвестные позиции отмечены отдельно.</div></figure></section>`;
+    app.innerHTML=`<section class="intro"><div><div class="eyebrow"><svg class="flag" viewBox="0 0 24 16" aria-hidden="true"><path fill="#fff" d="M0 0h24v5.333H0z"/><path fill="#1659c2" d="M0 5.333h24v5.334H0z"/><path fill="#de353e" d="M0 10.667h24V16H0z"/></svg> Российская версия</div><h1>Ваша Дума</h1><p class="lead"><strong>Как выглядел бы парламент, если бы всё зависело от вас?</strong> Распределите 450 мест по своим взглядам. Вы выбираете важные темы — ваши ответы определяют состав Думы.</p><div class="start-line"><button class="cta" id="start">Начать тест</button><small>${D.topics.length} тем · ${D.questions.length} вопросов<br>полный или адаптивный режим</small></div><ol class="steps"><li><b><em>1</em> Выберите темы</b><span>Ваши приоритеты определяют число мест.</span></li><li><b><em>2</em> Дайте ответы</b><span>Двигайте ползунок между двумя позициями.</span></li><li><b><em>3</em> Следите за счётом</b><span>Каждый блок меняет состав вашей Думы.</span></li></ol><p class="privacy"><span class="lock" aria-hidden="true">♧</span><span><b>Ответы остаются на вашем устройстве.</b> Они не сохраняются и не отправляются. Это исследование взглядов, а не рекомендация голосовать.</span></p></div><figure><div class="hemi-card"><div id="demo-hemi">${hemi(demo,'450','мест · большинство от 226',null,null,D.parties.map((_,i)=>i))}<div class="demo-dialogue-wrap is-hidden" id="demo-dialogue-wrap" aria-hidden="true"><div class="demo-dialogue" id="demo-dialogue" role="note"></div></div><svg class="demo-proposal-link" id="demo-proposal-link" viewBox="0 0 450 244" aria-hidden="true" hidden><ellipse id="demo-speaker-ring" rx="8" ry="8"/></svg></div>${legend(D.parties.map((_,i)=>i))}</div><figcaption class="caption">Один из возможных составов вашей Думы</figcaption><div class="notice"><b>Экспериментальная модель.</b> Позиции партий — авторские оценки по программам и публичным материалам. Неизвестные позиции отмечены отдельно.</div></figure></section>`;
     document.querySelector('#start').onclick=()=>priorities();
     setupDemo();
 
@@ -68,16 +68,43 @@
       {name:'Разные взгляды, общее большинство',weights:[15,12,11,12,10,13,12,8,7]},
       {name:'Гражданское участие',weights:[9,9,13,22,24,14,5,2,2]}
     ];
-    let active=0;const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let active=0,proposal=0;const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
     const caption=document.querySelector('.caption');caption.innerHTML='<span id="demo-label">Пример: '+examples[0].name+'</span><small>Иллюстрации возможностей теста, не прогноз</small>';
+    const stage=document.querySelector('#demo-hemi'),diagram=stage.querySelector('.hemi'),dialogueWrap=document.querySelector('#demo-dialogue-wrap'),dialogue=document.querySelector('#demo-dialogue'),link=document.querySelector('#demo-proposal-link');
     const show=(i,animate=true)=>{
+      if(demoFrame){cancelAnimationFrame(demoFrame);demoFrame=null;}
+      dialogueWrap.classList.add('is-hidden');dialogueWrap.setAttribute('aria-hidden','true');dialogue.classList.remove('is-speaking');link.hidden=true;
       const totals=M.apportion(examples[i].weights,450),sequence=[];
       D.parties.forEach((_,party)=>{for(let j=0;j<totals[party];j++)sequence.push(party);});
       const circles=[...document.querySelectorAll('#demo-hemi circle')],targets=M.shuffle(M.seatPositions.map((_,k)=>k));
       const from=circles.map(circle=>({x:+circle.getAttribute('cx'),y:+circle.getAttribute('cy')}));
       document.querySelector('#demo-label').textContent='Пример: '+examples[i].name;
       document.querySelector('#demo-hemi svg').setAttribute('aria-label',`Пример: ${examples[i].name}. ${D.parties.map((p,k)=>p.name+' — '+totals[k]).join('; ')}`);
-      circles.forEach((circle,k)=>{const target=targets[k];circle.style.transitionDelay='0ms';circle.setAttribute('fill',D.parties[sequence[target]]?.color||'var(--empty)');circle.querySelector('title').textContent=D.parties[sequence[target]]?.name||'';});
+      circles.forEach((circle,k)=>{const target=targets[k];circle.classList.remove('demo-speaking');circle.style.transitionDelay='0ms';circle.setAttribute('data-demo-party',sequence[target]);circle.setAttribute('fill',D.parties[sequence[target]]?.color||'var(--empty)');circle.querySelector('title').textContent=D.parties[sequence[target]]?.name||'';});
+      const speak=()=>{
+        if(S.view!=='intro'||dialogueWrap.isConnected===false)return;
+        const partyIndex=proposal%D.parties.length,party=D.parties[partyIndex],bills=window.PoliticsBills.filter(b=>b.sponsors.includes(party.id));
+        const bill=bills[Math.floor(proposal/D.parties.length)%bills.length];proposal++;
+        const candidates=circles.map((circle,k)=>({circle,point:M.seatPositions[targets[k]],owner:sequence[targets[k]]})).filter(x=>x.owner===partyIndex).sort((a,b)=>Math.abs(a.point.y-150)-Math.abs(b.point.y-150)||a.point.row-b.point.row);
+        if(!bill||!candidates.length)return;
+        const {circle,point}=candidates[0];
+        dialogue.setAttribute('data-demo-bill',bill.id);dialogue.setAttribute('data-demo-party',partyIndex);
+        dialogue.innerHTML=`<div class="demo-deputy">${dot(party.color)}<b>${escape(party.short)}</b><small>Депутат предлагает</small></div><p>${escape(bill.title)}</p><svg class="demo-dialogue-tail" viewBox="0 0 28 20" aria-hidden="true"><path d="M 1 0 L 14 20 L 27 0"/></svg>`;
+        // Position the bubble in the same layer as the seat. Its tail tip stays on that seat
+        // throughout scaling, because the animation origin is the exact same point.
+        dialogue.style.transition='none';dialogue.style.transform='none';
+        const stageRect=typeof stage.getBoundingClientRect==='function'?stage.getBoundingClientRect():{left:0,top:0,width:450};
+        const diagramRect=typeof diagram.getBoundingClientRect==='function'?diagram.getBoundingClientRect():{left:stageRect.left,top:stageRect.top+64,width:stageRect.width,height:stageRect.width*244/450};
+        const bubbleRect=typeof dialogue.getBoundingClientRect==='function'?dialogue.getBoundingClientRect():{width:230,height:94};
+        const x=diagramRect.left-stageRect.left+point.x/450*diagramRect.width,y=diagramRect.top-stageRect.top+point.y/244*diagramRect.height;
+        const width=bubbleRect.width,height=bubbleRect.height,left=Math.max(8,Math.min(stageRect.width-width-8,x-width/2)),top=y-height-20;
+        dialogueWrap.setAttribute('style',`--speaker-color:${party.color};--bubble-left:${left.toFixed(2)}px;--bubble-top:${top.toFixed(2)}px;--speaker-anchor:${(x-left).toFixed(2)}px;--speech-origin-x:${(x-left).toFixed(2)}px;--speech-origin-y:${(y-top).toFixed(2)}px;--speech-delay:${proposal===1?'.65s':'0s'}`);
+        dialogue.style.transform='';dialogue.style.transition='';
+        dialogueWrap.classList.remove('is-hidden');dialogueWrap.setAttribute('aria-hidden','false');dialogue.classList.add('is-speaking');
+        link.setAttribute('style',`--speaker-color:${party.color}`);link.hidden=false;
+        const ring=document.querySelector('#demo-speaker-ring');ring.setAttribute('cx',point.x.toFixed(2));ring.setAttribute('cy',point.y.toFixed(2));
+        circle.style.color=party.color;circle.classList.add('demo-speaking');
+      };
       const motion=i%4;
       const paint=progress=>circles.forEach((circle,k)=>{
         const target=M.seatPositions[targets[k]],delay=motion===1?target.row*.014:(k%13)*.012;
@@ -89,23 +116,30 @@
         if(motion===3){x+=bend*(225-x)*.45;y+=bend*(80+target.row*5-y)*.42;}
         circle.setAttribute('cx',x.toFixed(2));circle.setAttribute('cy',y.toFixed(2));
       });
-      if(!animate||reduced){paint(1.2);return;}
-      const start=performance.now();function frame(now){if(S.view!=='intro')return;const p=Math.min(1.2,(now-start)/2250);paint(p);if(p<1.2)demoFrame=requestAnimationFrame(frame);else demoFrame=null;}demoFrame=requestAnimationFrame(frame);
+      if(!animate||reduced){paint(1.2);speak();return;}
+      const start=performance.now();function frame(now){if(S.view!=='intro'||dialogueWrap.isConnected===false)return;const p=Math.min(1.2,(now-start)/2250);paint(p);if(p<1.2)demoFrame=requestAnimationFrame(frame);else{demoFrame=null;speak();}}demoFrame=requestAnimationFrame(frame);
     };
-    show(0,false);demoTimer=setInterval(()=>{if(!document.hidden)show(active=(active+1)%examples.length);},6400);
+    show(0,false);demoTimer=setInterval(()=>{if(!document.hidden)show(active=(active+1)%examples.length);},9000);
   }
   function updateProgress(){
     const p=document.querySelector('#progress');p.hidden=!['quiz','board'].includes(S.view);if(p.hidden)return;
     const q=D.questions.find(q=>q.id===S.queue[S.index]);
     p.innerHTML=`<span class="progress-name">${q?D.topics[q.topic].name:''}</span><div class="progress-dots" aria-hidden="true">${S.queue.map((id,i)=>`<i class="${i===S.index?'current ':''}${S.answers[id]===null?'skip':S.answers[id]!==undefined?'done':''}${i&&D.questions.find(q=>q.id===id).topic!==D.questions.find(q=>q.id===S.queue[i-1]).topic?' gap':''}"></i>`).join('')}</div><span class="progress-fraction">${Object.keys(S.answers).length} / ${S.queue.length}</span>`;
   }
-  function segments(t,level,disabled=false){return `<div class="segments" role="radiogroup" aria-label="Важность темы ${D.topics[t].name}">${D.levels.map((l,k)=>`<button role="radio" aria-checked="${level===k}" data-topic="${t}" data-level="${k}" ${disabled?'disabled':''} tabindex="${level===k?0:-1}">${l.name}</button>`).join('')}</div>`;}
+  function segments(t,level,disabled=false){return `<div class="segments" role="radiogroup" style="--level:${level}" aria-label="Важность темы ${D.topics[t].name}"><span class="segment-indicator" aria-hidden="true"></span>${D.levels.map((l,k)=>`<button role="radio" aria-checked="${level===k}" data-topic="${t}" data-level="${k}" ${disabled?'disabled':''} tabindex="${level===k?0:-1}">${l.name}</button>`).join('')}</div>`;}
+  function animateImportance(root,t,previous,level){
+    if(previous===level||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+    const button=document.querySelector(`${root} [data-topic="${t}"][data-level="${level}"]`),group=button?.closest('.segments');
+    if(!group)return;
+    group.setAttribute('style',`--level:${level};--from-level:${previous}`);
+    group.classList.add('is-changing');
+  }
   function priorities(edit=false){
     setView('priorities');S.edit=edit;
     app.innerHTML=`<section class="priorities"><h2>${edit?'Измените приоритеты':'Что важно для вас?'}</h2><p class="lead">Чем важнее тема, тем больше из 450 мест она распределяет. Выберите «Не важно», чтобы пропустить её.${edit?' Ответы сохранятся, а места будут пересчитаны.':''}</p><div class="priority-list" id="priority-list"></div><fieldset class="mode-choice"><legend>Как будем проходить</legend><label><input type="radio" name="mode" value="adaptive" ${S.mode==='adaptive'?'checked':''}><span><b>Адаптивный</b><small>Общий набор и уточнения для важных тем или смешанных ответов. При всех темах: 72–98 вопросов.</small></span></label><label><input type="radio" name="mode" value="full" ${S.mode==='full'?'checked':''}><span><b>Полный</b><small>Все 98 вопросов. Полная картина без сокращений.</small></span></label></fieldset><div class="party-selector"><h3>Какие партии сравниваем</h3><p class="hint">Все включены по умолчанию. Можно выбрать только интересующие вас партии.</p><div class="parties-list">${D.parties.map((p,i)=>`<label><input type="checkbox" value="${i}" ${S.enabled.includes(i)?'checked':''}>${dot(p.color)}${p.short}</label>`).join('')}</div></div><div class="action-row"><button class="cta" id="begin">${edit?'Пересчитать результат':'Перейти к вопросам'}</button><span class="hint" id="priority-meta"></span>${edit?'<button class="text-button" id="back-result">Вернуться к результату</button>':''}</div><p class="tip">Исходные 48 вопросов адаптированы к России. Ещё 50 — про актуальные российские темы. Темы и вопросы с одинаковым приоритетом перемешиваются.</p></section>`;
     renderPriorityRows();
     document.querySelector('.mode-choice').onchange=e=>{S.mode=e.target.value;renderPriorityRows();};
-    document.querySelector('#priority-list').onclick=e=>{const b=e.target.closest('[data-level]');if(!b)return;S.levels[+b.dataset.topic]=+b.dataset.level;renderPriorityRows();document.querySelector(`#priority-list [data-topic="${b.dataset.topic}"][data-level="${b.dataset.level}"]`)?.focus({preventScroll:true});};
+    document.querySelector('#priority-list').onclick=e=>{const b=e.target.closest('[data-level]');if(!b)return;const t=+b.dataset.topic,level=+b.dataset.level,previous=S.levels[t];S.levels[t]=level;renderPriorityRows();animateImportance('#priority-list',t,previous,level);document.querySelector(`#priority-list [data-topic="${t}"][data-level="${level}"]`)?.focus({preventScroll:true});};
     document.querySelector('#priority-list').onkeydown=segmentKeys;
     document.querySelector('.parties-list').onchange=()=>{S.enabled=[...document.querySelectorAll('.parties-list input:checked')].map(x=>+x.value);renderPriorityRows();};
     document.querySelector('#begin').onclick=()=>edit?applyPriorities():startQuiz();
@@ -166,8 +200,17 @@
     S.adaptiveNotice='Уточним эту тему: в ваших ответах есть нюансы. Дополнительные вопросы помогут раскрыть их без предположений о вашей идеологии.';
     return true;
   }
-  function board(topic){S.adaptiveNotice='';setView('board');app.innerHTML=`<section class="board"><div class="board-header"><span class="eyebrow">Блок ${S.order.indexOf(topic)+1} из ${S.order.length}</span><h2>${D.topics[topic].name}: подсчёт мест</h2><p class="lead">Каждая партия получает свой ход. Самый большой вклад — в конце.</p></div><div class="box board-layout"><div><div id="board-hemi"></div>${legend()}</div><div class="ranking" id="board-ranking"></div></div><div class="board-message" id="board-message" role="status" aria-live="polite"></div><div class="action-row"><button class="cta" id="continue">${S.index===S.queue.length-1?'Посмотреть результат':'Следующая тема'}</button><button class="text-button" id="replay">Повторить подсчёт</button><button class="text-button" id="review-block">Изменить ответы блока</button></div><details class="board-explanation"><summary>Откуда взялись эти места</summary><div id="board-explanation"></div></details></section>`;paintBoard(topic);document.querySelector('#continue').onclick=()=>{if(S.index===S.queue.length-1)result();else{S.index++;quiz();}};document.querySelector('#replay').onclick=()=>paintBoard(topic);document.querySelector('#review-block').onclick=()=>{S.index=S.queue.findIndex(id=>D.questions.find(q=>q.id===id).topic===topic);quiz();};}
-  function paintBoard(topic){
+  function board(topic){
+    S.adaptiveNotice='';setView('board');
+    app.innerHTML=`<section class="board"><div class="board-header"><span class="eyebrow">Блок ${S.order.indexOf(topic)+1} из ${S.order.length}</span><h2>${D.topics[topic].name}: подсчёт мест</h2><p class="lead">Каждая партия получает свой ход и свой сектор в полукруге.</p><div class="board-motion-controls"><button class="board-skip" id="skip-board"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 5 10 7-10 7zM19 5v14"/></svg><span>Пропустить анимацию</span></button><label class="board-motion-preference"><input type="checkbox" id="skip-board-always" ${S.skipBoardAnimations?'checked':''}><span>Пропускать в следующих блоках</span></label></div></div><div class="box board-layout"><div><div id="board-hemi"></div>${legend()}</div><div class="ranking" id="board-ranking"></div></div><div class="board-message" id="board-message" role="status" aria-live="polite"></div><div class="action-row"><button class="cta" id="continue">${S.index===S.queue.length-1?'Посмотреть результат':'Следующая тема'}</button><button class="text-button" id="replay">Повторить подсчёт</button><button class="text-button" id="review-block">Изменить ответы блока</button></div><details class="board-explanation"><summary>Откуда взялись эти места</summary><div id="board-explanation"></div></details></section>`;
+    paintBoard(topic);
+    document.querySelector('#skip-board').onclick=()=>boardController?.finish();
+    document.querySelector('#skip-board-always').onchange=e=>{S.skipBoardAnimations=e.target.checked;if(S.skipBoardAnimations)boardController?.finish();};
+    document.querySelector('#continue').onclick=()=>{if(S.index===S.queue.length-1)result();else{S.index++;quiz();}};
+    document.querySelector('#replay').onclick=()=>paintBoard(topic,true);
+    document.querySelector('#review-block').onclick=()=>{S.index=S.queue.findIndex(id=>D.questions.find(q=>q.id===id).topic===topic);quiz();};
+  }
+  function paintBoard(topic,replay=false){
     boardController?.cancel();
     const originalChunks=M.apportion(S.levels.map(l=>D.levels[l].weight),450),calc=M.calculate(S.levels,S.answers,S.enabled);
     const last=S.index===S.queue.length-1;
@@ -177,7 +220,8 @@
     const finalMessage=!calc.usable[topic]?'Для этого блока не хватает ответов и известных оценок. Его места перейдут другим темам.':`${D.parties[S.enabled[i]].short} ${leader>=226?'получает большинство':'лидирует'}: ${leader} мест. ${450-n} мест ещё не распределено.`;
     document.querySelector('#board-hemi').innerHTML=hemi(previous,String(previous.reduce((a,b)=>a+b,0)),'мест распределено');
     document.querySelector('#board-explanation').innerHTML=explainBlock(topic,calc,addition);
-    boardController=window.BoardMotion.play({hemi:document.querySelector('#board-hemi svg'),ranking:document.querySelector('#board-ranking'),previous,addition,enabled:S.enabled,parties:D.parties,reduced:matchMedia('(prefers-reduced-motion: reduce)').matches,message:document.querySelector('#board-message'),finalMessage});
+    const skipButton=document.querySelector('#skip-board');skipButton.disabled=false;
+    boardController=window.BoardMotion.play({hemi:document.querySelector('#board-hemi svg'),ranking:document.querySelector('#board-ranking'),previous,addition,enabled:S.enabled,parties:D.parties,reduced:matchMedia('(prefers-reduced-motion: reduce)').matches||(!replay&&S.skipBoardAnimations),message:document.querySelector('#board-message'),finalMessage,onComplete:()=>{skipButton.disabled=true;}});
   }
   function explainBlock(topic,calc,addition){
     const questions=D.questions.filter(q=>q.topic===topic&&S.answers[q.id]!==undefined&&S.answers[q.id]!==null),chunk=addition.reduce((n,x)=>n+x,0);
@@ -189,7 +233,7 @@
     const top=Math.max(...calc.totals),leaders=S.enabled.filter((_,k)=>calc.totals[k]===top),lead=leaders.map(i=>D.parties[i].short).join(' и ');
     app.innerHTML=`<section class="results"><div class="eyebrow">${answered} ответов · ваша картина политики</div><h2>Ваша Дума</h2><p class="lead">${leaders.length>1?'Первое место делят':'Самая большая фракция —'} <strong>${lead}</strong>: ${top} мест.${top>=226?' Есть абсолютное большинство.':' Для большинства нужно набрать 226 мест.'}</p><div class="box results-main"><div id="result-hemi"></div><div><div id="result-ranking"></div><p class="result-desc" id="result-desc">Нажмите на партию, чтобы выделить её места и увидеть описание.</p></div></div><p class="result-model-note">Авторская модель партий · <button class="text-button inline-method">Как рассчитано</button></p><section id="result-coordinates" class="result-coordinates" aria-label="Политические координаты"></section><div class="box"><h3>Возможное большинство</h3><p class="hint">Минимальные комбинации от 226 мест. Это арифметика: совместимость партий и готовность к союзу не оцениваются.</p><div class="coalitions">${M.coalitions(calc.totals,S.enabled).map(c=>`<article class="coalition"><b>${c.total}</b><p>${c.members.map(k=>D.parties[S.enabled[k]].short).join(' + ')}</p><div class="stack">${c.members.map(k=>`<i style="width:${calc.totals[k]/450*100}%;background:${D.parties[S.enabled[k]].color}"></i>`).join('')}</div></article>`).join('')}</div></div><div class="box"><h3>Как темы распределили места</h3><p class="hint">Нажмите на тему, чтобы выделить её вклад. Можно изменить важность — результат сразу пересчитается.</p><div id="topic-results"></div></div><div class="box"><h3>Где вы на шкале</h3><p class="hint">Цветные точки — средние оценки партий. Кольцо — ваши ответы. Это обзор; места считаются отдельно по каждому вопросу.</p>${legend()}<div class="strips" id="strips"></div></div><div id="scenario"></div><div class="action-row"><button class="cta" id="download">Скачать результат</button><button class="cta secondary" id="edit-priorities">Изменить темы и партии</button><button class="text-button" id="again">Пройти заново</button></div><details class="box"><summary>Методика и источники</summary>${methodHTML()}</details><p class="legal">Вы ответили на ${answered} из ${D.questions.length} вопросов. Ответы хранятся только в памяти этой страницы и исчезнут при её закрытии или обновлении. Тест не отправляет ответы, не использует аналитику и не сохраняет их в cookies. Образовательный эксперимент, без научной валидации, прогностической силы и рекомендации голосовать. Версия ${D.version}.</p></section>`;
     updateResult();mountCoordinates('#result-coordinates');renderScenario();document.querySelector('#edit-priorities').onclick=()=>priorities(true);document.querySelector('#again').onclick=()=>{S.answers={};S.edit=false;priorities();};document.querySelector('#download').onclick=download;document.querySelector('.inline-method').onclick=showMethod;
-    document.querySelector('#topic-results').onclick=e=>{const b=e.target.closest('[data-level]');if(b){const t=+b.dataset.topic,newLevel=+b.dataset.level;if(newLevel===0&&!S.levels.some((l,i)=>i!==t&&l>0&&calc.usable[i])){toast('Оставьте хотя бы одну тему с ответами');return;}S.levels[t]=newLevel;updateResult();document.querySelector(`#topic-results [data-topic="${t}"][data-level="${newLevel}"]`)?.focus({preventScroll:true});return;}const topic=e.target.closest('[data-highlight-topic]');if(topic){const t=+topic.dataset.highlightTopic;S.highlight=S.highlight?.topic===t?null:{topic:t};updateResult();}};
+    document.querySelector('#topic-results').onclick=e=>{const b=e.target.closest('[data-level]');if(b){const t=+b.dataset.topic,newLevel=+b.dataset.level;if(newLevel===0&&!S.levels.some((l,i)=>i!==t&&l>0&&calc.usable[i])){toast('Оставьте хотя бы одну тему с ответами');return;}const previous=S.levels[t];S.levels[t]=newLevel;updateResult();animateImportance('#topic-results',t,previous,newLevel);document.querySelector(`#topic-results [data-topic="${t}"][data-level="${newLevel}"]`)?.focus({preventScroll:true});return;}const topic=e.target.closest('[data-highlight-topic]');if(topic){const t=+topic.dataset.highlightTopic;S.highlight=S.highlight?.topic===t?null:{topic:t};updateResult();}};
     document.querySelector('#topic-results').onkeydown=segmentKeys;
   }
   function updateResult(){

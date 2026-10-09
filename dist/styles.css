@@ -34,3 +34,36 @@
 @media(max-width:620px){.scenario-controls{grid-template-columns:1fr}.legislation-summary{grid-template-columns:repeat(2,1fr);gap:9px}.legislation-summary>div{padding:12px}.legislation-summary b{font-size:1.5rem}.legislation-summary span{font-size:.7rem}.law-card>summary{padding:14px 12px;gap:8px}.law-title{font-size:.76rem}.law-title small{font-size:.65rem}.law-outcome small{font-size:.59rem}.law-badge{font-size:.59rem;padding:3px 6px}.law-body{padding:3px 13px 16px}.law-body>p{font-size:.75rem}.vote-table{font-size:.7rem}.vote-table th,.vote-table td{padding:9px 4px}.vote-table th:first-child{width:51%}.vote-totals{font-size:.66rem;gap:8px 10px}.annual-report{font-size:.68rem}.law-filters select{max-width:100%;width:100%}.indicator-laws span{font-size:.62rem}.law-timeline small{font-size:.6rem}.law-timeline b{font-size:.85rem}}
 @media(max-width:380px){.header .brand small{display:none}.header .brand{font-size:1.4rem}.header .pill{font-size:.68rem;padding:7px 9px}.start-line{flex-wrap:wrap;gap:12px}.scenario-indicators{grid-template-columns:1fr}.indicator-title{min-height:0}.indicator-title h4{max-width:none}.indicator-laws span{font-size:.67rem}.law-card>summary{flex-wrap:wrap}.law-title{flex-basis:calc(100% - 26px)}.law-outcome{display:flex;gap:8px;align-items:center;justify-items:start;margin-left:18px}.law-card>summary:after{margin-left:auto}.law-filters{gap:8px}.law-filters label{min-width:0}.law-timeline button{padding:10px 8px}}
 @media(max-width:620px){.priority-row .segments{grid-column:1/-1}.segments button{padding:8px 4px;min-width:0;font-size:.68rem;min-height:44px}.progress-dots{gap:1px;min-width:0}.progress-dots i.gap{margin-left:2px}.pole,.question-detail .options span{min-width:0;overflow-wrap:anywhere;hyphens:auto}.quiz h2,.topic-name,.indicator-title h4{overflow-wrap:anywhere;hyphens:auto}}
+
+/* Importance choices share one moving selection pill, including result edits. */
+.segments{position:relative;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));isolation:isolate}
+.segments .segment-indicator{position:absolute;top:3px;bottom:3px;left:3px;width:calc((100% - 14px)/5);border-radius:20px;background:var(--surface);box-shadow:0 2px 7px #0001;transform:translateX(calc(var(--level) * (100% + 2px)));pointer-events:none}
+.segments button{position:relative;z-index:1;min-width:0;padding:7px 5px;transition:color .18s;overflow-wrap:normal}
+.segments button[aria-checked=true]{background:transparent;box-shadow:none;color:var(--accent)}
+.segments.is-changing .segment-indicator{animation:importance-slide .4s cubic-bezier(.22,.85,.25,1) both}
+.segments.is-changing button[aria-checked=true]{animation:importance-pick .4s ease-out both}
+.priority-row:has(.segments.is-changing) .seat-number,.topic-result:has(.segments.is-changing) .seat-number{animation:importance-total .4s ease-out both}
+@keyframes importance-slide{from{transform:translateX(calc(var(--from-level) * (100% + 2px)));box-shadow:0 2px 7px #0001}55%{box-shadow:0 3px 13px color-mix(in srgb,var(--accent) 24%,transparent)}to{transform:translateX(calc(var(--level) * (100% + 2px)));box-shadow:0 2px 7px #0001}}
+@keyframes importance-pick{0%{transform:scale(.93)}55%{transform:scale(1.06)}100%{transform:scale(1)}}
+@keyframes importance-total{0%{transform:translateY(3px);opacity:.5}60%{transform:translateY(-2px);color:var(--accent)}100%{transform:translateY(0);opacity:1}}
+@media(prefers-reduced-motion:reduce){.segments.is-changing .segment-indicator,.segments.is-changing button[aria-checked=true],.priority-row:has(.segments.is-changing) .seat-number,.topic-result:has(.segments.is-changing) .seat-number{animation:none}}
+
+/* Each speech bubble is an overlay anchored directly to its speaking seat. */
+#demo-hemi{--speech-space:64px;position:relative;padding-top:var(--speech-space)}
+.demo-dialogue-wrap{position:absolute;inset:0;z-index:3;pointer-events:none}
+.demo-dialogue{position:absolute;left:var(--bubble-left,8px);top:var(--bubble-top,8px);width:min(230px,calc(100% - 16px));border:1px solid color-mix(in srgb,var(--speaker-color) 45%,var(--line));border-radius:18px;padding:12px 14px;background:color-mix(in srgb,var(--speaker-color) 8%,var(--surface));box-shadow:0 8px 28px #0002;transform-origin:var(--speech-origin-x,50%) var(--speech-origin-y,calc(100% + 20px));transition:opacity .2s,transform .2s}
+.demo-dialogue-tail{position:absolute;left:calc(var(--speaker-anchor,50%) - 14px);top:calc(100% - 1px);width:28px;height:20px;overflow:visible;fill:color-mix(in srgb,var(--speaker-color) 8%,var(--surface));stroke:color-mix(in srgb,var(--speaker-color) 45%,var(--line));stroke-width:1.1}
+.demo-deputy{display:flex;gap:6px;align-items:center;font-size:.72rem;line-height:1.4;color:var(--ink)}
+.demo-deputy .dot{width:7px;height:7px;flex:none}
+.demo-deputy small{margin-left:auto;font-size:.56rem;color:var(--muted);white-space:nowrap}
+.demo-dialogue p{font-size:.83rem;font-weight:650;line-height:1.4;margin:7px 0 0;text-wrap:pretty}
+.demo-dialogue-wrap.is-hidden .demo-dialogue{opacity:0;transform:scale(.025);pointer-events:none}
+.demo-dialogue.is-speaking{animation:deputy-speak .9s cubic-bezier(.18,.7,.2,1) both;animation-delay:var(--speech-delay,0s);will-change:transform,opacity}
+.demo-proposal-link{position:absolute;top:var(--speech-space);left:0;width:100%;height:calc(100% - var(--speech-space));pointer-events:none;overflow:visible;color:var(--speaker-color);z-index:2}
+.demo-proposal-link[hidden]{display:none}
+.demo-proposal-link ellipse{fill:color-mix(in srgb,var(--speaker-color) 18%,transparent);stroke:currentColor;stroke-width:1.5;animation:deputy-ring 2.2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+#demo-hemi .demo-speaking{stroke:var(--surface);stroke-width:1.2;filter:drop-shadow(0 0 3px currentColor)}
+@keyframes deputy-speak{0%{opacity:0;transform:scale(.015)}10%{opacity:1;transform:scale(.075)}76%{opacity:1;transform:scale(1.035)}100%{opacity:1;transform:scale(1)}}
+@keyframes deputy-ring{0%,100%{transform:scale(1);opacity:.65}50%{transform:scale(1.28);opacity:1}}
+@media(max-width:620px){.demo-dialogue{padding:11px 12px;border-radius:16px}.demo-dialogue p{font-size:.8rem}.demo-deputy{font-size:.68rem;gap:5px}.demo-deputy small{font-size:.54rem}}
+@media(prefers-reduced-motion:reduce){.demo-dialogue,.demo-dialogue.is-speaking,.demo-proposal-link ellipse,#demo-hemi .seat{animation:none;transition:none}}

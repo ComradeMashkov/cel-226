@@ -37,8 +37,8 @@ class Node {
   }
 }
 function fixture() {
-  const queue = new Map(), callbacks = new Map(), listeners = new Map(); let id = 0;
-  const context = {window: {innerHeight: 600,
+  const queue = new Map(), callbacks = new Map(), listeners = new Map(), scrollStops = []; let id = 0;
+  const context = {window: {innerHeight: 600, scrollX: 0, scrollY: 120, scrollTo(options) { scrollStops.push(options); },
     addEventListener(type, handler) { if (!listeners.has(type)) listeners.set(type, new Set()); listeners.get(type).add(handler); },
     removeEventListener(type, handler) { listeners.get(type)?.delete(handler); }
   }, requestAnimationFrame(callback) { queue.set(++id, callback); callbacks.set(id, callback); return id; }, cancelAnimationFrame(id) { queue.delete(id); }};
@@ -48,7 +48,7 @@ function fixture() {
   hemi.children.push(new Node('text', {class: 'big'}));
   const ranking = new Node(), message = new Node();
   const parties = Array.from({length: 9}, (_, i) => ({name: `Party ${i}`, short: `P${i}`, color: `color-${i}`}));
-  return {M: context.window.BoardMotion, hemi, ranking, message, parties, queue, callbacks,
+  return {M: context.window.BoardMotion, hemi, ranking, message, parties, queue, callbacks, scrollStops,
     listenerCount() { return [...listeners.values()].reduce((n, handlers) => n + handlers.size, 0); },
     dispatch(type) { listeners.get(type)?.forEach(handler => handler()); },
     step(time) { assert.equal(queue.size, 1, 'only one animation frame may be pending'); const [key, callback] = [...queue][0]; queue.delete(key); callback(time); },
@@ -82,28 +82,74 @@ assert.equal(state.done, true);
 assert.throws(() => f.M.createPlan({previous: [450], addition: [1], enabled: [0]}));
 assert.throws(() => f.M.createPlan({previous: [0, 0], addition: [1, 2], enabled: [0, 0]}));
 
-// Production rendering preserves all circle objects and previously allocated owners.
+// Each party has a proportional sector spanning the entire arc, with exact coloured counts.
+assert.deepEqual(Array.from(plan.sectors, s => s.size), [199, 188, 63]);
+assert.deepEqual(Array.from(plan.sectors, s => s.start), [0, 199, 387]);
+const fullPlan = f.M.createPlan({previous:[120,180,100],addition:[20,0,30],enabled:[3,6,8]});
+assert.deepEqual(Array.from(fullPlan.sectors, s => s.size), [140,180,130], 'at 450 places sector sizes equal actual party totals');
+const zeroPlan = f.M.createPlan({previous:[0,0,0],addition:[0,0,0],enabled:[3,6,8]});
+assert.deepEqual(Array.from(zeroPlan.sectors, s => s.size), [0,0,0]);
+for (const totals of [[1,0,1],[2,5,0],[10,8,6,5,5,4,4,4,2],[226,2,222]]) {
+  const p = f.M.createPlan({previous:totals,addition:totals.map(()=>0),enabled:totals.map((_,i)=>i)});
+  assert.equal(p.sectors.reduce((n,s)=>n+s.size,0),450);
+  p.sectors.forEach((sector,k)=>assert.ok(sector.size>=totals[k], 'each sector has room for every actual awarded seat'));
+}
+function assertSectorSeats(f, p, totals) {
+  const seats = f.hemi.querySelectorAll('circle.seat');
+  p.sectors.forEach((sector,k)=>{
+    for(let offset=0;offset<sector.size;offset++) assert.equal(seats[sector.start+offset].getAttribute('fill'),offset<totals[k]?f.parties[p.enabled[k]].color:'var(--empty)');
+  });
+  assert.equal(seats.filter(c=>c.getAttribute('fill')!=='var(--empty)').length,totals.reduce((a,b)=>a+b,0));
+}
 const circles = [...f.hemi.querySelectorAll('circle.seat')];
-const control = f.M.play({...inputs, ...f});
+let completions = 0;
+const control = f.M.play({...inputs, ...f, onComplete:()=>completions++});
 const rows = [0, 1, 2].map(i => f.ranking.querySelector(`[data-board-party="${i}"]`));
+assertSectorSeats(f,plan,inputs.previous);
+const originalOwners = circles.map(c=>c.getAttribute('fill'));
 f.step(0);
 f.step(plan.turns[1].start + 325);
 assert.equal(f.message.textContent, 'P6: +15 мест.');
 assert.equal(f.hemi.querySelectorAll('circle.seat')[80], circles[80]);
-assert.equal(circles[79].getAttribute('fill'), 'color-6');
-assert.equal(circles[80].getAttribute('fill'), 'color-3');
-assert.equal(circles[169].getAttribute('fill'), 'color-3');
-assert.equal(circles[170].getAttribute('fill'), 'color-6', 'new seats belong to the current party rather than displacing old owners');
+assertSectorSeats(f,plan,Array.from(f.M.snapshot(plan,plan.turns[1].start+325).totals));
+originalOwners.forEach((owner,i)=>{if(owner!=='var(--empty)')assert.equal(circles[i].getAttribute('fill'),owner,'old owners never move during this board');});
+assert.ok(circles[80].classList.contains('board-seat-current'));
+assert.ok(!circles[79].classList.contains('board-seat-current'), 'old seats do not glow as new awards');
 f.step(plan.duration);
 assert.equal(f.queue.size, 0);
 assert.equal(f.hemi.querySelector('.big').textContent, 215);
-assert.equal(circles[214].getAttribute('fill'), 'color-1');
-assert.equal(circles[215].getAttribute('fill'), 'var(--empty)');
+assertSectorSeats(f,plan,[95,90,30]);
+assert.equal(circles[387].getAttribute('fill'),'color-1', 'small partial awards occupy the far side of the arc too');
 assert.equal(f.ranking.querySelector('[data-board-party="0"]'), rows[0]);
 assert.equal(f.ranking.getAttribute('aria-busy'), 'false');
 assert.deepEqual(f.ranking.children.filter(n => n.classList.contains('board-rank-row')), rows);
 assert.equal(rows[0].getAttribute('aria-posinset'), '1');
-control.cancel();
+assert.equal(completions,1);
+control.finish(); control.cancel(); assert.equal(completions,1);
+
+// Skip finishes synchronously, stops outstanding scroll, and invalidates delivered callbacks.
+f = fixture(); completions = 0;
+const skip = f.M.play({...inputs,...f,finalMessage:'Finished',onComplete:()=>completions++});
+const staleSkip = [...f.queue.values()][0];
+const offscreen = f.ranking.querySelector('[data-board-party="1"]');
+offscreen.getBoundingClientRect=()=>({top:800,bottom:844}); offscreen.scrollIntoView=()=>{};
+f.step(0); f.step(plan.turns[0].start); skip.finish();
+assert.equal(f.queue.size,0); assert.equal(f.listenerCount(),0);
+assert.equal(f.hemi.querySelector('.big').textContent,215);
+assert.equal(f.message.textContent,'Finished');
+assert.equal(f.ranking.getAttribute('data-board-phase'),'done');
+assert.ok(f.ranking.classList.contains('board-reduced'));
+assert.ok(f.scrollStops.some(stop=>stop.behavior==='instant'));
+assertSectorSeats(f,plan,[95,90,30]);
+const finishedDump=f.dump(); staleSkip(6000); skip.finish();
+assert.equal(f.dump(),finishedDump); assert.equal(completions,1);
+f = fixture(); completions=0;
+const abandoned=f.M.play({...inputs,...f,onComplete:()=>completions++});
+abandoned.cancel(); const abandonedDump=f.dump(); abandoned.finish();
+assert.equal(f.dump(),abandonedDump); assert.equal(completions,0);
+f=fixture(); completions=0;
+const instant=f.M.play({...inputs,...f,reduced:true,onComplete:()=>completions++});
+instant.finish(); assert.equal(completions,1); assert.equal(f.queue.size,0);
 
 // Final native DOM order follows rank while reusing exactly the same row nodes.
 f = fixture();
@@ -168,4 +214,4 @@ const cancelledFollow = f.M.play({...f, ...inputs}); cancelledFollow.cancel();
 assert.equal(f.listenerCount(), 0, 'cancelled counts must release follow listeners');
 f.M.play({...f, ...inputs, reduced: true});
 assert.equal(f.listenerCount(), 0, 'reduced motion leaves no auto-follow listeners');
-console.log('Passed: sequential party turns, zero/max timing, monotonic totals, stable old seat owners and row/circle identity, final DOM/ARIA order, reduced motion, one-rAF, cancellation/replay/removal guards and auto-follow/manual-scroll cleanup.');
+console.log('Passed: sequential party turns, zero/max timing, monotonic totals, party sectors across the arc with exact counts and stable owners, row/circle identity, final DOM/ARIA order, reduced motion, synchronous skip/scroll stop/completion guards, one-rAF, cancellation/replay/removal guards and auto-follow/manual-scroll cleanup.');

@@ -5,6 +5,21 @@ window.BoardMotion = (() => {
   const escape = value => String(value).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
   const byTotal = (totals, enabled) => totals.map((_, i) => i).sort((a, b) => totals[b] - totals[a] || enabled[a] - enabled[b]);
 
+  function sectorLayout(finalTotals, enabled) {
+    const allocated = sum(finalTotals);
+    const raw = finalTotals.map(n => allocated ? n / allocated * 450 : 0);
+    const sizes = raw.map(Math.floor);
+    if (allocated) raw.map((n, party) => ({party, remainder: n - sizes[party]}))
+      .sort((a, b) => b.remainder - a.remainder || enabled[a.party] - enabled[b.party])
+      .slice(0, 450 - sum(sizes)).forEach(({party}) => sizes[party]++);
+    let start = 0;
+    return sizes.map((size, party) => {
+      const sector = {party, globalParty: enabled[party], start, size, end: start + size};
+      start += size;
+      return sector;
+    });
+  }
+
   function createPlan({previous, addition, enabled}) {
     if (![previous, addition, enabled].every(Array.isArray) || previous.length !== addition.length || enabled.length !== previous.length || new Set(enabled).size !== enabled.length || enabled.some(i => !Number.isInteger(i) || i < 0) || [...previous, ...addition].some(n => !Number.isInteger(n) || n < 0) || sum(previous) + sum(addition) > 450) throw Error('Некорректные данные подсчёта мест');
     let cursor = 450;
@@ -17,7 +32,8 @@ window.BoardMotion = (() => {
       cursor = turn.end;
       return turn;
     });
-    return {previous: [...previous], addition: [...addition], enabled: [...enabled], turns, finalStart: cursor, duration: cursor + 400};
+    const finalTotals = previous.map((n, party) => n + addition[party]);
+    return {previous: [...previous], addition: [...addition], enabled: [...enabled], finalTotals, sectors: sectorLayout(finalTotals, enabled), turns, finalStart: cursor, duration: cursor + 400};
   }
 
   // This temporal snapshot contains only arithmetic and timing, making sequential counting testable.
@@ -47,18 +63,43 @@ window.BoardMotion = (() => {
     return {phase, active, largest, progress, totals, accrued, shown, order, total: sum(totals), done};
   }
 
-  function play({hemi, ranking, previous, addition, enabled, parties, reduced = false, message, finalMessage = ''}) {
+  function play({hemi, ranking, previous, addition, enabled, parties, reduced = false, message, finalMessage = '', onComplete}) {
     if (!hemi || !ranking || !Array.isArray(parties) || enabled.some(i => !parties[i])) throw Error('Не найден интерфейс подсчёта мест');
     running.get(ranking)?.cancel();
     const plan = createPlan({previous, addition, enabled});
     const circles = [...hemi.querySelectorAll('circle.seat')], big = hemi.querySelector('.big');
-    if (circles.length < sum(previous) + sum(addition)) throw Error('В полукруге недостаточно мест');
-    let cancelled = false, frame = null, start = null, previousState = null, lastPhase = null, reordered = false, follow = !reduced;
+    if (circles.length < 450) throw Error('В полукруге должно быть 450 мест');
+    let cancelled = false, completed = false, frame = null, start = null, previousState = null, lastPhase = null, reordered = false, follow = !reduced, scrolling = false;
     const stopFollowing = () => { follow = false; };
     const followEvents = ['wheel', 'touchstart', 'pointerdown', 'keydown'];
     const removeFollowingListeners = () => { if (typeof window.removeEventListener === 'function') followEvents.forEach(type => window.removeEventListener(type, stopFollowing)); };
     if (typeof window.addEventListener === 'function') followEvents.forEach(type => window.addEventListener(type, stopFollowing, {passive: true}));
-    const controller = {cancel() { if (cancelled) return; cancelled = true; if (frame !== null) cancelAnimationFrame(frame); frame = null; removeFollowingListeners(); }};
+    const stopMotion = () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      frame = null; follow = false;
+      removeFollowingListeners();
+      // Stop an outstanding native smooth scroll at its current position rather than continuing after a skip.
+      if (scrolling && typeof window.scrollTo === 'function' && Number.isFinite(window.scrollY) && Number.isFinite(window.scrollX)) window.scrollTo({top: window.scrollY, left: window.scrollX, behavior: 'instant'});
+      scrolling = false;
+    };
+    const complete = state => {
+      if (completed || cancelled) return;
+      completed = true;
+      stopMotion();
+      if (typeof onComplete === 'function') onComplete(state);
+    };
+    const controller = {
+      cancel() { if (cancelled) return; cancelled = true; stopMotion(); },
+      finish() {
+        if (cancelled || completed) return;
+        if (ranking.isConnected === false || hemi.isConnected === false) { controller.cancel(); return; }
+        stopMotion();
+        ranking.classList.add('board-reduced');
+        const state = snapshot(plan, plan.duration);
+        render(state);
+        complete(state);
+      }
+    };
     running.set(ranking, controller);
     ranking.classList.add('board-ranking');
     ranking.classList.toggle('board-reduced', reduced);
@@ -78,12 +119,12 @@ window.BoardMotion = (() => {
       if (!circle.querySelector('title')) circle.innerHTML = '<title>Место ещё не распределено</title>';
       return circle.querySelector('title');
     });
-    // Preserve every already-coloured seat. New seats occupy the empty circles in turn order.
-    const owners = [];
-    previous.forEach((count, k) => { for (let i = 0; i < count; i++) owners.push(k); });
-    const previousCount = owners.length;
-    const paintedOwners = owners.map(k => k);
-    for (let i = owners.length; i < circles.length; i++) paintedOwners.push(null);
+    // Reserve stable proportional sectors across the entire semicircle, including their empty space.
+    const slotParties = circles.map(() => null), slotOffsets = circles.map(() => -1);
+    plan.sectors.forEach(sector => {
+      for (let i = sector.start; i < sector.end; i++) { slotParties[i] = sector.party; slotOffsets[i] = i - sector.start; }
+    });
+    const paintedOwners = circles.map(() => null);
 
     function render(state) {
       if (cancelled) return;
@@ -103,7 +144,7 @@ window.BoardMotion = (() => {
           const activeRow = rows[state.active].row;
           if (typeof activeRow.getBoundingClientRect === 'function') {
             const rect = activeRow.getBoundingClientRect();
-            if (rect.top < 84 || rect.bottom > window.innerHeight - 72) activeRow.scrollIntoView({behavior: 'smooth', block: 'center'});
+            if (rect.top < 84 || rect.bottom > window.innerHeight - 72) { activeRow.scrollIntoView({behavior: 'smooth', block: 'center'}); scrolling = true; }
           }
         }
       }
@@ -120,10 +161,8 @@ window.BoardMotion = (() => {
         fill.style.width = `${Math.min(100, state.totals[k] / 226 * 100)}%`;
       });
       if (!previousState || state.total !== previousState.total) {
-        const nextOwners = [...owners];
-        plan.turns.forEach(turn => { for (let n = 0; n < state.accrued[turn.party]; n++) nextOwners.push(turn.party); });
         circles.forEach((circle, i) => {
-          const owner = nextOwners[i] ?? null;
+          const party = slotParties[i], owner = party !== null && slotOffsets[i] < state.totals[party] ? party : null;
           if (paintedOwners[i] !== owner || !previousState) {
             circle.setAttribute('fill', owner === null ? 'var(--empty)' : parties[enabled[owner]].color);
             titles[i].textContent = owner === null ? 'Место ещё не распределено' : parties[enabled[owner]].name;
@@ -134,7 +173,8 @@ window.BoardMotion = (() => {
         hemi.setAttribute('aria-label', `Парламент: ${enabled.map((global, k) => `${parties[global].name} — ${state.totals[k]} мест`).join('; ')}. Распределено ${state.total} из 450 мест.`);
       }
       if (!previousState || previousState.active !== state.active || previousState.total !== state.total) circles.forEach((circle, i) => {
-        circle.classList.toggle('board-seat-current', i >= previousCount && state.active !== null && paintedOwners[i] === state.active);
+        const active = state.active;
+        circle.classList.toggle('board-seat-current', active !== null && slotParties[i] === active && slotOffsets[i] >= previous[active] && slotOffsets[i] < state.totals[active]);
       });
       if ((state.phase === 'final' || state.done) && !reordered) {
         ranking.setAttribute('aria-busy', 'false');
@@ -145,15 +185,16 @@ window.BoardMotion = (() => {
       }
       previousState = state;
     }
-    if (reduced) { render(snapshot(plan, plan.duration)); return controller; }
+    if (reduced) { const state = snapshot(plan, plan.duration); render(state); complete(state); return controller; }
     render(snapshot(plan, 0));
     function tick(now) {
-      if (cancelled) return;
+      if (cancelled || completed) return;
       if (ranking.isConnected === false || hemi.isConnected === false) { controller.cancel(); return; }
       if (start === null) start = now;
       const state = snapshot(plan, now - start);
       render(state);
-      frame = !state.done && !cancelled ? requestAnimationFrame(tick) : null;
+      if (state.done) complete(state);
+      frame = !state.done && !cancelled && !completed ? requestAnimationFrame(tick) : null;
     }
     frame = requestAnimationFrame(tick);
     return controller;
